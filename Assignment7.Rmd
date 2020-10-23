@@ -1,0 +1,185 @@
+---
+title: "<center> Assignment7 <center>"
+subtitle: "<center> Random Number Generation <center> "
+author: "<center> Zihan Qi <center>"
+date: "<center> 10/21/2020 <center>"
+output: 
+  pdf_document: 
+    fig_height: 4.5
+    fig_width: 5.5
+    latex_engine: xelatex
+  html_document: 
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# 5.3.1 Rejection Sampling
+
+We have $f$ and $g$ be two probability densities on $(0,\infty)$, such that
+\begin{align*}
+  f(x) \propto \sqrt{4+x}\,x^{\theta-1} e^{-x}, \quad
+  g(x) \propto (2 x^{\theta-1} + x^{\theta-1/2}) e^{-x}, \quad x>0.
+\end{align*}
+
+
+## a) Show that $g$ is a mixture of Gamma distributions. Identify the component distributions and their weights in the mixture.
+
+First we know that $g(x) \propto (2 x^{\theta-1} + x^{\theta-1/2}) e^{-x}$ and also gamma distribution function $\Gamma(\alpha)=\int_{0}^\infty x^{\alpha-1}e^{-x}\,dx$
+
+Also we have $C\int_0^{\infty}(2x^{\theta-1}+x^{\theta-1/2})e^{-x}dx=1$
+
+Therefore, $C(2\Gamma(\theta)+\Gamma(\theta+\frac{1}{2}))=1$
+
+And we have $C=\frac{1}{2\Gamma(\theta)+\Gamma(\theta+\frac{1}{2})}$
+
+As a result, we can express g as:
+
+$$
+\begin{aligned}
+g(x) &= \frac{1}{2\Gamma(\theta)+\Gamma(\theta+\frac{1}{2})}(2x^{\theta-1}e^{-x}+ x^{\theta-\frac{1}{2}}e^{-x}) \\
+&= \frac{2\Gamma(\theta)}{2\Gamma(\theta)+\Gamma(\theta+\frac{1}{2})}\frac{1}{\Gamma(\theta)}{x^{\theta-1}e^{-x}}+\frac{\Gamma(\theta+\frac{1}{2})}{2\Gamma(\theta)+\Gamma(\theta+\frac{1}{2})}\frac{1}{\Gamma(\theta+\frac{1}{2})}{2x^{\theta-1/2}e^{-x}}
+\end{aligned}
+$$
+We can see that g is a mixture of two Gamma distributions, $\Gamma(\theta,1)$ and $\Gamma(\theta+\frac{1}{2},1)$, and the weights are $\frac{2\Gamma(\theta)}{2\Gamma(\theta)+\Gamma(\theta+\frac{1}{2})}$ and $\frac{\Gamma(\theta+\frac{1}{2})}{2\Gamma(\theta)+\Gamma(\theta+\frac{1}{2})}$ respectively
+
+
+## b) Design a procedure to sample from g and implement it in R
+
+We first want to set up the weights. Then random normally choose numbers from 0-1, separate to two distributions depends on the weight. Then combine the distribution with the weight and finish sampling.
+
+We use $\theta = 8$ and $n = 10000$ for this example
+```{r}
+gamma_sampling <- function(theta, n){
+  weight <- (2 * gamma(theta)) / (2 * gamma(theta) + gamma(theta + 1/2))
+  set.seed(123)
+  m <- runif(n)
+  for (i in 1:n){
+    if (m[i] < weight){
+      m[i] <- rgamma(1, shape = theta, scale = 1)
+    }
+    else{
+      m[i] <- rgamma(1, shape = theta + 1/2, scale =1)
+    }
+  }
+  
+  m
+}
+
+g <- function(x, theta){
+  (1/(2 * gamma(theta) + gamma(theta + 1/2))) * (2 * x^(theta - 1) * exp(-x) + x^(theta - 1/2) * exp(-x))
+}
+
+plot(density(gamma_sampling(8, 10000)), xlab = c("x"), ylab = c("density"), main = c("Kernal density and true density of g"), col = "blue")
+curve(g(x,8), from = 0, to = 30, n = 10000, add = TRUE, col = "red")
+legend("topright", legend = c("kernel density", "True density"), 
+       bty = "n", text.col = c("blue", "red"))
+```
+
+## c) Rejection Sampling to sample from f using g as the instrumental distribution
+
+First we know that $f(x) \propto \sqrt{4+x}\,x^{\theta-1} e^{-x}$ which < $(2 + \sqrt{x}) x^{\theta - 1} e^{-x}$ = $g(x) \propto (2 x^{\theta-1} + x^{\theta-1/2}) e^{-x}$ when $x > 0$
+
+Therefore we can set M in the rejection method to be 1 and do the following:
+We first set up the weights and generate the sample for g. Then see if Unif(0,1) * g(x) <= f(x). We found our solution.
+
+We still use $\theta = 8$ and $n = 10000$ for this example
+
+```{r}
+gamma_sampling_2 <- function(theta, n){
+  weight <- (2 * gamma(theta)) / (2 * gamma(theta) + gamma(theta + 1/2))
+  set.seed(123)
+  y <- rep(0,n)
+   for (i in 1:n){
+    st <- TRUE
+    while(st){
+      x <- runif(1,0,1)
+      if (x < weight){
+        x <- rgamma(1, shape = theta, scale = 1)
+      }
+      else{
+        x <- rgamma(1, shape = theta + 1/2, scale = 1) 
+      }
+      test <- runif(1,0,1) * (2 * x^(theta - 1) + x ^ (theta - 1/2)) * exp(-x)
+      if (test <= (sqrt(4 + x) * x^(theta - 1) * exp(-x))){
+        y[i] <- x
+        st <- FALSE
+      }
+    }
+  }
+  y
+}
+
+
+
+plot(density(gamma_sampling_2(8, 10000)), xlab = c("x"), ylab = c("density"), main = c("Kernal density of f and the underlying function"), col = "blue")
+curve(g(x,8), from = 0, to = 30, n = 10000, add = TRUE, col = "red")
+legend("topright", legend = c("kernel density", "Underlying Function"), 
+       bty = "n", text.col = c("blue", "red"))
+```
+
+
+# 6.3.1 Normal Mixture Revisited
+
+Consider again the normal mixture example, except that the parameters of the normal distributions are considered unknown.
+
+Suppose that prior for $\mu_1$ and $\mu_2$ are $N(0, 10^2)$, that the prior for $1/\sigma_1^2$ and $1/\sigma_2^2$ are $\Gamma(a, b)$ with shape $a = .5$ and scale $b = 10$
+```{r}
+n <- 100
+delta <- 0.7
+mu1 <- 0.2
+mu2 <- 0.3
+sigma1 <- 0.5
+sigma2 <- 0.5
+u <- rbinom(n, prob = delta, size = 1)
+x <- rnorm(n, ifelse(u == 1, mu1, mu2), ifelse(u == 1, sigma1, sigma2))
+x1 <- rnorm(n, mu1, sigma1)
+x2 <- rnorm(n, mu2, sigma2)
+
+logpost <- function(theta, x1, x2, tau1, tau2, a1, b1, a2, b2) {
+  delta <- theta[1]
+  mu1 <- theta[2]
+  mu2 <- theta[3]
+  sigma1 <- theta[4]
+  sigma2 <- theta[5]
+  return (prod(delta * sigma1^(1 - a1) * exp(-mu1^2 / (2 * tau1) - b1 / sigma1 - (x1 - mu1)^2 / (2 * sigma1))  +
+         (1 - delta) * sigma2^(1 - a2) * exp(-mu2^2 / (2 * tau2) - b2 / sigma2  - (x2 - mu2)^2 / (2 * sigma2))))
+}
+
+mymcmc <- function(niter, thetaInit, x1, x2, tau1, tau2, a1, b1, a2, b2, nburn= 100) {
+  p <- length(thetaInit)
+  thetaCurrent <- thetaInit
+  ## define a function for full conditional sampling  
+  logFC <- function(th, idx) {
+    theta <- thetaCurrent
+    theta[idx] <- th
+    logpost(theta, x1, x2, tau1, tau2, a1, b1, a2, b2)
+  }
+  out <- matrix(thetaInit, niter, p, byrow = TRUE)
+  ## Gibbs sampling
+  for (i in 2:niter) {
+    for (j in 1:p) {
+      ## general-purpose arms algorithm
+      out[i, j] <- thetaCurrent[j] <-
+          HI::arms(thetaCurrent[j], logFC,
+                   function(x, idx) ((x > -10) * (x < 10)), 
+                   1, idx = j)
+    }
+  }
+  out[-(1:nburn), ]
+}
+
+niter <- 600; nburn <- 100
+thetaInit <- c(0.5, 0.2, 0.3, 0.5, 0.5)
+tau1 <- tau2 <- 100
+a1 <- a2 <- 0.5
+b1 <- b2 <- 10
+sim <- mymcmc(niter, thetaInit, x1, x2, tau1, tau2, a1, b1, a2, b2)
+plot(ts(sim[,1]))
+plot(ts(sim[,2]))
+plot(ts(sim[,3]))
+plot(ts(sim[,4]))
+plot(ts(sim[,5]))
+```
